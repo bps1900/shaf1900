@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jadwal Petugas Mushola</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>🕌 Jadwal Petugas Mushola</h1>
+  <input type="month" id="bulan">
+  <p id="info"></p>
+  <div class="scroll"><table id="tabel"></table></div>
+
+  <a href="#" id="bukaAdmin">Admin</a>
+  <section id="admin" hidden>
+    <input type="password" id="pin" placeholder="PIN admin">
+    <label>Daftar pegawai laki-laki (Excel, kolom A = nama, baris 1 = header)
+      <input type="file" id="filePetugas" accept=".xlsx,.xls,.csv">
+    </label>
+    <button id="btnAcak">Acak ulang bulan terpilih</button>
+    <button id="btnTes">Tes kirim ke grup dummy</button>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
