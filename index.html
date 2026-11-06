@@ -2,28 +2,75 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jadwal Petugas Mushola</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jadwal Petugas Mushola Asyakirin</title>
+<link rel="icon" href="bps.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <h1>🕌 Jadwal Petugas Mushola</h1>
-  <input type="month" id="bulan">
-  <p id="info"></p>
-  <div class="scroll"><table id="tabel"></table></div>
 
-  <a href="#" id="bukaAdmin">Admin</a>
-  <section id="admin" hidden>
-    <input type="password" id="pin" placeholder="PIN admin">
-    <label>Daftar pegawai laki-laki (Excel, kolom A = nama, baris 1 = header)
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <div class="brand-ico">🕌</div>
+      <div class="brand-txt">
+        <strong>Jadwal Petugas Mushola Asyakirin</strong>
+        <span>Imam &amp; Muazin Zuhur dan Ashar</span>
+      </div>
+    </div>
+    <!-- Klik logo = buka panel admin (tersembunyi) -->
+    <img src="bps.png" alt="BPS Provinsi Kepulauan Bangka Belitung" id="logo" class="logo" draggable="false">
+  </div>
+</header>
+
+<main>
+  <section id="hariIni" class="today" hidden></section>
+
+  <div class="pills">
+    <span class="pill green" id="pMendatang">Mendatang: 0</span>
+    <span class="pill orange" id="pSelesai">Selesai: 0</span>
+    <span class="pill blue" id="pSemua">Semua: 0</span>
+  </div>
+
+  <div class="tools">
+    <div class="nav">
+      <button type="button" id="prev" aria-label="Bulan sebelumnya">‹</button>
+      <input type="month" id="bulan" aria-label="Pilih bulan">
+      <button type="button" id="next" aria-label="Bulan berikutnya">›</button>
+    </div>
+    <input type="search" id="cari" placeholder="Cari nama petugas…" aria-label="Cari nama petugas">
+  </div>
+
+  <div id="daftar" class="list" aria-live="polite"></div>
+
+  <footer>Waktu salat mengacu data Kemenag RI · Kota Pangkal Pinang</footer>
+</main>
+
+<dialog id="admin">
+  <form method="dialog" class="dlg-head">
+    <strong>Panel Admin</strong>
+    <button type="submit" aria-label="Tutup">✕</button>
+  </form>
+  <div class="dlg-body">
+    <label>PIN
+      <input type="password" id="pin" autocomplete="off" placeholder="Masukkan PIN admin">
+    </label>
+    <label>Daftar pegawai laki-laki (Excel)
+      <small>Kolom A = nama, baris 1 = header</small>
       <input type="file" id="filePetugas" accept=".xlsx,.xls,.csv">
     </label>
-    <button id="btnAcak">Acak ulang bulan terpilih</button>
-    <button id="btnTes">Tes kirim ke grup dummy</button>
-  </section>
-</main>
+    <button type="button" id="btnAcak" class="btn">Acak ulang bulan terpilih</button>
+    <button type="button" id="btnTes" class="btn ghost">Tes kirim ke grup dummy</button>
+  </div>
+</dialog>
+
+<div id="toast" role="status"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
