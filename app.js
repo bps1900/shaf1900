@@ -1,5 +1,4 @@
-
-// URL Web App ada di config.js (const API)
+// Halaman jadwal. URL Web App ada di config.js (const API)
 const TZ = 'Asia/Jakarta';
 const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -9,97 +8,120 @@ const todayStr = () => new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeri
 const parse = s => new Date(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10), 12);
 const indo = s => { const d = parse(s); return `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; };
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const keyBulan = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 
-let data = [], showPast = false;
 const TODAY = todayStr();
+const cache = {};
+let cur = [], showPast = false;
 $('bulan').value = TODAY.slice(0,7);
 
-async function load(bulan){
-  $('list').innerHTML = '<div class="kosong">Memuat…</div>';
-  try{
-    const r = await fetch(API + '?bulan=' + bulan);
-    data = await r.json();
-  }catch(e){ data = []; $('list').innerHTML = '<div class="kosong">Gagal memuat jadwal.</div>'; return; }
-  showPast = false;
-  render();
+async function getMonth(key){
+  if(cache[key]) return cache[key];
+  const r = await fetch(API + '?bulan=' + key);
+  const j = await r.json();
+  if(!Array.isArray(j)) throw new Error('bad');
+  return cache[key] = j;
 }
 
-// kelompokkan per tanggal
 function group(rows){
   const m = {};
   rows.forEach(r => (m[r.tanggal] ||= []).push(r));
   return Object.keys(m).sort().map(t => ({tgl:t, items:m[t]}));
 }
+const urutSlot = items => ['Zuhur','Ashar'].map(n => items.find(i => i.salat === n)).filter(Boolean);
 
 function slotHtml(it){
-  if(!it) return '<div class="slot empty"></div>';
-  return `<div class="slot">
-    <div class="head"><span class="nm">${esc(it.salat)}</span><span class="jam">${esc(it.jam||'-')}</span></div>
-    <div class="p"><b>Imam:</b>${esc(it.imam)}</div>
-    <div class="p"><b>Muazin:</b>${esc(it.muazin)}</div>
-  </div>`;
+  return `<div class="sl"><div class="t"><small>${esc(it.salat)}</small>${esc(it.jam||'-')}</div><div class="im">${esc(it.imam)}</div><div class="mu">${esc(it.muazin)}</div></div>`;
 }
 
-function rowHtml(g, cls, tag){
-  const d = parse(g.tgl);
-  const zu = g.items.find(i => i.salat === 'Zuhur');
-  const as = g.items.find(i => i.salat === 'Ashar');
-  return `<div class="row ${cls}">
-    <div class="date"><div class="tgl">${d.getDate()} ${BULAN[d.getMonth()]}</div><div class="hari">${HARI[d.getDay()]}</div>${tag?`<div class="tag">${tag}</div>`:''}</div>
-    ${slotHtml(zu)}${slotHtml(as)}
-  </div>`;
+// jadwal terdekat (hari ini kalau ada, kalau tidak berikutnya)
+let nextP = null;
+function cariNext(){
+  return nextP ||= (async () => {
+    try{
+      const d = parse(TODAY);
+      for(let k=0; k<3; k++){
+        const key = keyBulan(new Date(d.getFullYear(), d.getMonth()+k, 1));
+        const g = group(await getMonth(key)).find(g => g.tgl >= TODAY);
+        if(g) return g;
+      }
+    }catch(e){}
+    return null;
+  })();
 }
 
-async function bannerHtml(){
-  // cari jadwal hari ini / berikutnya (di bulan ini, lalu bulan depan bila perlu)
-  let all = group(data);
-  const hariIni = all.find(g => g.tgl === TODAY);
-  let next = all.find(g => g.tgl > TODAY);
-  if(!hariIni && !next && $('bulan').value.slice(0,7) === TODAY.slice(0,7)){
-    const d = parse(TODAY); const nb = new Date(d.getFullYear(), d.getMonth()+1, 1);
-    const key = nb.getFullYear()+'-'+String(nb.getMonth()+1).padStart(2,'0');
-    try{ const r = await (await fetch(API+'?bulan='+key)).json(); const g = group(r)[0]; if(g) next = g; }catch(e){}
+async function renderBanner(){
+  const g = await cariNext();
+  if(!g){ $('banner').innerHTML = '<small>JADWAL</small><h2>Belum ada jadwal</h2>'; return; }
+  const label = g.tgl === TODAY ? 'JADWAL HARI INI' : 'JADWAL BERIKUTNYA';
+  $('banner').innerHTML = `<small>${label}</small><h2>${indo(g.tgl)}</h2><div class="bn-slots">${urutSlot(g.items).map(slotHtml).join('')}</div>`;
+}
+
+// susun minggu (Senin-Jumat) untuk satu bulan
+function susunMinggu(key){
+  const y = +key.slice(0,4), m = +key.slice(5,7);
+  const last = new Date(y, m, 0).getDate();
+  const weeks = []; let wk = null;
+  for(let t=1; t<=last; t++){
+    const dow = new Date(y, m-1, t).getDay();
+    if(dow === 0 || dow === 6) continue;
+    if(dow === 1 || !wk){ wk = [null,null,null,null,null]; weeks.push(wk); }
+    wk[dow-1] = key + '-' + String(t).padStart(2,'0');
   }
-  let p;
-  if(hariIni) p = 'Jadwal hari ini ada di urutan paling atas.';
-  else p = 'Tidak ada jadwal hari ini (akhir pekan/libur).' + (next ? ' Berikutnya: ' + indo(next.tgl) + '.' : '');
-  return `<small>HARI INI</small><h2>${indo(TODAY)}</h2><p>${p}</p>`;
+  return weeks;
 }
 
 async function render(){
+  const key = $('bulan').value;
   const q = $('cari').value.trim().toLowerCase();
-  let groups = group(data);
-  if(q) groups = groups.filter(g => g.items.some(i => (i.imam+' '+i.muazin).toLowerCase().includes(q)));
+  const nx = await cariNext();
+  const first = nx ? nx.tgl : null;
+  const by = {};
+  group(cur).forEach(g => by[g.tgl] = g.items);
 
-  const past = groups.filter(g => g.tgl < TODAY);
-  const upc = groups.filter(g => g.tgl >= TODAY);
-  const hidePast = !showPast && upc.length > 0 && past.length > 0;
+  if(!cur.length){ $('list').innerHTML = '<div class="kosong">Belum ada jadwal bulan ini.</div>'; renderBanner(); return; }
+
+  const weeks = susunMinggu(key);
+  const isPastWk = w => w.every(t => !t || t < TODAY);
+  const past = weeks.filter(isPastWk), up = weeks.filter(w => !isPastWk(w));
+  const hidePast = !showPast && past.length && up.length;
+  const shown = hidePast ? up : weeks;
+
+  const cell = tgl => {
+    if(!tgl) return '<div class="cell blank"></div>';
+    const d = parse(tgl), items = by[tgl];
+    if(!items) return `<div class="cell libur"><b>${d.getDate()}</b><span>Libur</span></div>`;
+    let cls = 'cell', tag = '';
+    if(tgl < TODAY) cls += ' past';
+    if(tgl === first){ cls += ' first'; tag = tgl === TODAY ? 'HARI INI' : 'BERIKUTNYA'; }
+    if(q){ cls += items.some(i => (i.imam+' '+i.muazin).toLowerCase().includes(q)) ? ' hit' : ' dim'; }
+    return `<div class="${cls}"><div class="ch"><b>${d.getDate()}</b><span class="d-desk">${BULAN[d.getMonth()].slice(0,3)}</span><span class="d-mob">${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]}</span>${tag?`<span class="tag">${tag}</span>`:''}</div>${urutSlot(items).map(slotHtml).join('')}</div>`;
+  };
 
   let html = '';
-  if(hidePast) html += `<button class="prev" id="btnPrev">⬆ Lihat jadwal sebelumnya (${past.length} hari)</button>`;
-  else if(showPast && past.length) html += `<button class="prev" id="btnPrev">⬇ Sembunyikan jadwal sebelumnya</button>`;
-
-  const shown = hidePast ? upc : groups;
-  let firstDone = false;
-  shown.forEach(g => {
-    const isPast = g.tgl < TODAY;
-    let cls = isPast ? 'past' : '', tag = '';
-    if(!isPast && !firstDone){ cls = 'first'; firstDone = true; tag = g.tgl === TODAY ? 'HARI INI' : 'BERIKUTNYA'; }
-    html += rowHtml(g, cls, tag);
-  });
-  if(!shown.length) html += '<div class="kosong">Belum ada jadwal.</div>';
+  if(hidePast) html += `<button class="prev" id="btnPrev">⬆ Lihat jadwal sebelumnya (${past.length} minggu)</button>`;
+  else if(showPast && past.length && up.length) html += `<button class="prev" id="btnPrev">⬇ Sembunyikan jadwal sebelumnya</button>`;
+  html += '<div class="hd"><div>Senin</div><div>Selasa</div><div>Rabu</div><div>Kamis</div><div>Jumat</div></div>';
+  shown.forEach(w => html += `<div class="wk">${w.map(cell).join('')}</div>`);
   $('list').innerHTML = html;
 
   const b = $('btnPrev');
   if(b) b.onclick = () => { showPast = !showPast; render(); };
-  $('banner').innerHTML = await bannerHtml();
+  renderBanner();
+}
+
+async function load(key){
+  $('list').innerHTML = '<div class="kosong">Memuat…</div>';
+  try{ cur = await getMonth(key); }
+  catch(e){ cur = []; $('list').innerHTML = '<div class="kosong">Gagal memuat jadwal.</div>'; return; }
+  showPast = false;
+  render();
 }
 
 function geser(n){
   const [y,m] = $('bulan').value.split('-').map(Number);
-  const d = new Date(y, m-1+n, 1);
-  $('bulan').value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-  
+  $('bulan').value = keyBulan(new Date(y, m-1+n, 1));
+  load($('bulan').value);
 }
 $('bPrev').onclick = () => geser(-1);
 $('bNext').onclick = () => geser(1);
