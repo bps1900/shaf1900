@@ -87,7 +87,7 @@ async function render(){
   const cell = tgl => {
     if(!tgl) return '<div class="cell blank"></div>';
     const d = parse(tgl), items = by[tgl];
-    if(!items) return `<div class="cell libur"><b>${d.getDate()}</b><span>Libur</span></div>`;
+    if(!items) return `<div class="cell libur"><b>${d.getDate()}</b><span>Tidak ada jadwal</span></div>`;
     let cls = 'cell', tag = '';
     if(tgl < TODAY) cls += ' past';
     if(tgl === first){ cls += ' first'; tag = tgl === TODAY ? 'HARI INI' : 'BERIKUTNYA'; }

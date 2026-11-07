@@ -92,12 +92,13 @@ $('btnSimpan').onclick = () => jalankan($('btnSimpan'),'Menyimpan…', async () 
 $('btnAcak').onclick = () => {
   const b = $('bulanAcak').value;
   if(!b){ setMsg('Pilih bulan dulu'); return; }
-  if(!confirm('Acak ulang jadwal '+b+'? Hari yang sudah lewat tidak berubah.')) return;
+  if(!confirm('Acak ulang jadwal '+b+'? Jadwal yang sudah lewat tidak diubah, hari kerja yang kosong akan terisi.')) return;
   jalankan($('btnAcak'),'Mengacak…', async () => {
     if(dirty) await simpan();
     const r = await api({aksi:'acak', bulan:b});
     if(r.error) throw new Error(r.error);
-    setMsg('Jadwal '+b+' diacak ('+r.jumlah+' slot)', true);
+    const lb = (r.libur||[]).map(t => t.slice(8)).join(', ');
+    setMsg('Jadwal '+b+' diacak ('+r.jumlah+' slot terisi)' + (lb ? '. Dilewati karena terbaca libur (tgl): '+lb : ''), true);
   });
 };
 $('btnLengkapi').onclick = () => {
@@ -107,7 +108,8 @@ $('btnLengkapi').onclick = () => {
     if(dirty) await simpan();
     const r = await api({aksi:'lengkapi', bulan:b});
     if(r.error) throw new Error(r.error);
-    setMsg(r.jumlah ? ('Ditambahkan '+r.jumlah+' slot yang kosong di '+b) : 'Tidak ada tanggal kosong di '+b, true);
+    const lb = (r.libur||[]).map(t => t.slice(8)).join(', ');
+    setMsg((r.jumlah ? 'Ditambahkan '+r.jumlah+' slot yang kosong di '+b : 'Tidak ada tanggal yang bisa diisi di '+b) + (lb ? '. Dilewati karena terbaca libur (tgl): '+lb : ''), true);
   });
 };
 $('btnTes').onclick = () => jalankan($('btnTes'),'Mengirim…', async () => {
