@@ -12,7 +12,7 @@ const keyBulan = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,
 
 const TODAY = todayStr();
 const cache = {};
-let cur = [], showPast = false;
+let cur = [];
 $('bulan').value = TODAY.slice(0,7);
 
 async function getMonth(key){
@@ -82,10 +82,7 @@ async function render(){
   if(!cur.length){ $('list').innerHTML = '<div class="kosong">Belum ada jadwal bulan ini.</div>'; renderBanner(); return; }
 
   const weeks = susunMinggu(key);
-  const isPastWk = w => w.every(t => !t || t < TODAY);
-  const past = weeks.filter(isPastWk), up = weeks.filter(w => !isPastWk(w));
-  const hidePast = !showPast && past.length && up.length;
-  const shown = hidePast ? up : weeks;
+  const shown = weeks;
 
   const cell = tgl => {
     if(!tgl) return '<div class="cell blank"></div>';
@@ -99,14 +96,10 @@ async function render(){
   };
 
   let html = '';
-  if(hidePast) html += `<button class="prev" id="btnPrev">⬆ Lihat jadwal sebelumnya (${past.length} minggu)</button>`;
-  else if(showPast && past.length && up.length) html += `<button class="prev" id="btnPrev">⬇ Sembunyikan jadwal sebelumnya</button>`;
   html += '<div class="hd"><div>Senin</div><div>Selasa</div><div>Rabu</div><div>Kamis</div><div>Jumat</div></div>';
   shown.forEach(w => html += `<div class="wk">${w.map(cell).join('')}</div>`);
   $('list').innerHTML = html;
 
-  const b = $('btnPrev');
-  if(b) b.onclick = () => { showPast = !showPast; render(); };
   renderBanner();
 }
 
@@ -114,7 +107,6 @@ async function load(key){
   $('list').innerHTML = '<div class="kosong">Memuat…</div>';
   try{ cur = await getMonth(key); }
   catch(e){ cur = []; $('list').innerHTML = '<div class="kosong">Gagal memuat jadwal.</div>'; return; }
-  showPast = false;
   render();
 }
 

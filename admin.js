@@ -100,6 +100,16 @@ $('btnAcak').onclick = () => {
     setMsg('Jadwal '+b+' diacak ('+r.jumlah+' slot)', true);
   });
 };
+$('btnLengkapi').onclick = () => {
+  const b = $('bulanAcak').value;
+  if(!b){ setMsg('Pilih bulan dulu'); return; }
+  jalankan($('btnLengkapi'),'Melengkapi…', async () => {
+    if(dirty) await simpan();
+    const r = await api({aksi:'lengkapi', bulan:b});
+    if(r.error) throw new Error(r.error);
+    setMsg(r.jumlah ? ('Ditambahkan '+r.jumlah+' slot yang kosong di '+b) : 'Tidak ada tanggal kosong di '+b, true);
+  });
+};
 $('btnTes').onclick = () => jalankan($('btnTes'),'Mengirim…', async () => {
   const r = await api({aksi:'tes'});
   if(r.error) throw new Error(r.error);
