@@ -3,7 +3,7 @@
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-let pin = '', daftar = [], dirty = false;
+let pin = '', daftar = [], asli = [], dirty = false;   // asli = nama saat dimuat/disimpan (untuk melacak perbaikan nama)
 
 const bulanIni = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit'}).format(new Date()).slice(0,7);
 $('bulanAcak').value = bulanIni();
@@ -16,7 +16,6 @@ function setMsg(t, ok){ const m=$('admMsg'); m.textContent=t||''; m.className='m
 function showStep(admin){
   $('stLogin').style.display = admin ? 'none' : 'grid';
   $('stAdmin').style.display = admin ? 'grid' : 'none';
-  $('mt').textContent = admin ? 'Panel Admin' : 'Masuk Admin';
 }
 
 // ---------- login ----------
@@ -27,28 +26,36 @@ async function login(){
   try{
     const r = await api({aksi:'daftar'});
     if(r.error){ pin=''; $('loginMsg').textContent=r.error; }
-    else{ daftar=r.petugas||[]; dirty=false; renderDaftar(); setMsg(''); showStep(true); }
+    else{ daftar=r.petugas||[]; asli=daftar.slice(); dirty=false; renderDaftar(); setMsg(''); showStep(true); }
   }catch(e){ pin=''; $('loginMsg').textContent='Gagal terhubung ke server'; }
   b.disabled=false; b.textContent='Masuk';
 }
 $('btnLogin').onclick = login;
 $('pinIn').onkeydown = e => { if(e.key==='Enter') login(); };
-$('btnKeluar').onclick = () => { pin=''; daftar=[]; dirty=false; $('pinIn').value=''; $('loginMsg').textContent=''; showStep(false); };
+$('btnKeluar').onclick = () => { pin=''; daftar=[]; asli=[]; dirty=false; location.replace('index.html'); };
 
 // ---------- petugas ----------
 function renderDaftar(){
   $('jml').textContent = daftar.length;
   $('chips').innerHTML = daftar.length
-    ? daftar.map((n,i)=>`<span class="chip">${esc(n)}<button data-i="${i}" aria-label="Hapus">✕</button></span>`).join('')
+    ? daftar.map((n,i)=>`<span class="chip"><span class="nm" data-e="${i}" title="Klik untuk memperbaiki nama">${esc(n)}</span><button class="ed" data-e="${i}" aria-label="Ubah nama" title="Ubah nama">✎</button><button data-i="${i}" aria-label="Hapus">✕</button></span>`).join('')
     : '<span class="hint">Belum ada petugas</span>';
 }
 $('chips').onclick = e => {
-  const i = e.target.dataset && e.target.dataset.i; if(i===undefined) return;
-  daftar.splice(+i,1); dirty=true; renderDaftar();
+  const t = e.target.dataset || {};
+  if(t.i !== undefined){ daftar.splice(+t.i,1); asli.splice(+t.i,1); dirty=true; renderDaftar(); return; }
+  if(t.e !== undefined){
+    const i = +t.e;
+    const baru = (prompt('Perbaiki nama petugas:', daftar[i]) || '').trim();
+    if(!baru || baru === daftar[i]) return;
+    if(daftar.some((x,k)=>k!==i && x.toLowerCase()===baru.toLowerCase())){ setMsg('Nama "'+baru+'" sudah ada di daftar'); return; }
+    daftar[i] = baru; dirty = true; renderDaftar();
+    setMsg('Nama diubah. Klik "Simpan daftar petugas" agar tersimpan (nama di jadwal ikut diperbaiki).', true);
+  }
 };
 function tambah(n){
   n = String(n||'').trim();
-  if(n && !daftar.some(x=>x.toLowerCase()===n.toLowerCase())){ daftar.push(n); dirty=true; return true; }
+  if(n && !daftar.some(x=>x.toLowerCase()===n.toLowerCase())){ daftar.push(n); asli.push(''); dirty=true; return true; }
   return false;
 }
 $('btnTambah').onclick = () => { if(tambah($('namaBaru').value)){ $('namaBaru').value=''; renderDaftar(); } };
@@ -74,9 +81,12 @@ $('xl').onchange = async e => {
 };
 
 async function simpan(){
-  const r = await api({aksi:'petugas', data:daftar});
+  // pasangan nama lama -> nama baru (perbaikan typo), supaya jadwal yang sudah ada ikut diperbaiki
+  const ganti = {};
+  daftar.forEach((n,i) => { if(asli[i] && asli[i] !== n) ganti[asli[i]] = n; });
+  const r = await api({aksi:'petugas', data:daftar, ganti});
   if(r.error) throw new Error(r.error);
-  dirty=false; return r;
+  asli = daftar.slice(); dirty = false; return r;
 }
 async function jalankan(btn, label, fn){
   btn.disabled=true; const t=btn.textContent; btn.textContent=label; setMsg('');
@@ -85,7 +95,7 @@ async function jalankan(btn, label, fn){
 }
 
 $('btnSimpan').onclick = () => jalankan($('btnSimpan'),'Menyimpan…', async () => {
-  const r = await simpan(); setMsg('Tersimpan ('+r.jumlah+' petugas)', true);
+  const r = await simpan(); setMsg('Tersimpan ('+r.jumlah+' petugas)' + (r.diganti ? '. Nama diperbaiki di '+r.diganti+' kolom jadwal.' : ''), true);
 });
 
 // ---------- acak & tes ----------

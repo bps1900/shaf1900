@@ -18,34 +18,44 @@
 </header>
 
 <div class="wrap">
-  <div class="card">
-    <div class="mh"><span id="mt">Masuk Admin</span></div>
 
-    <div class="mb" id="stLogin">
-      <label for="pinIn">PIN</label>
-      <input type="password" id="pinIn" placeholder="Masukkan PIN admin" autocomplete="off">
-      <div class="msg" id="loginMsg"></div>
-      <button class="btn pri" id="btnLogin">Masuk</button>
-    </div>
+  <!-- Login PIN -->
+  <div class="card login" id="stLogin">
+    <div class="ttl">Masuk Admin</div>
+    <label for="pinIn">PIN</label>
+    <input type="password" id="pinIn" placeholder="Masukkan PIN admin" autocomplete="off">
+    <div class="msg" id="loginMsg"></div>
+    <button class="btn pri" id="btnLogin">Masuk</button>
+  </div>
 
-    <div class="mb" id="stAdmin" style="display:none">
-      <label>Petugas (<span id="jml">0</span>) <span class="hint">- minimal 4 orang</span></label>
+  <!-- Panel admin: 2 kolom, 1 layar -->
+  <div class="adm" id="stAdmin" style="display:none">
+
+    <section class="card pn">
+      <div class="ttl">Petugas <span class="cnt">(<span id="jml">0</span>)</span> <span class="hint">minimal 4 orang · klik nama / ✎ untuk memperbaiki</span></div>
       <div class="chips" id="chips"></div>
-      <div class="add"><input type="text" id="namaBaru" placeholder="Nama petugas baru"><button class="btn" id="btnTambah">Tambah</button></div>
-      <label for="xl">Impor dari Excel <span class="hint">(kolom A = nama, baris 1 = header)</span></label>
-      <input type="file" id="xl" accept=".xlsx,.xls,.csv">
-      <button class="btn pri" id="btnSimpan">Simpan daftar petugas</button>
-      <hr style="border:0;border-top:1px solid var(--line)">
-      <label for="bulanAcak">Bulan yang diacak</label>
-      <input type="month" id="bulanAcak">
-      <button class="btn" id="btnLengkapi">Lengkapi tanggal kosong (tanpa mengubah yang sudah ada)</button>
-      <div class="grid2">
-        <button class="btn pri" id="btnAcak">Acak ulang bulan ini (isi semua hari kerja)</button>
-        <button class="btn" id="btnTes">Tes kirim ke grup dummy</button>
+      <div class="add">
+        <input type="text" id="namaBaru" placeholder="Nama petugas baru">
+        <button class="btn" id="btnTambah">Tambah</button>
       </div>
+      <div class="imp">
+        <label for="xl">Impor Excel <span class="hint">(kolom A = nama, baris 1 = header)</span></label>
+        <input type="file" id="xl" accept=".xlsx,.xls,.csv">
+      </div>
+      <button class="btn pri" id="btnSimpan">Simpan daftar petugas</button>
+    </section>
+
+    <section class="card ak">
+      <div class="ttl">Jadwal</div>
+      <label for="bulanAcak">Bulan</label>
+      <input type="month" id="bulanAcak">
+      <button class="btn pri" id="btnAcak">Acak ulang bulan ini (isi semua hari kerja)</button>
+      <button class="btn" id="btnLengkapi">Lengkapi tanggal kosong (tanpa mengubah yang sudah ada)</button>
+      <button class="btn" id="btnTes">Tes kirim ke grup dummy</button>
       <div class="msg" id="admMsg"></div>
-      <button class="btn red" id="btnKeluar">Keluar admin</button>
-    </div>
+      <button class="btn red push" id="btnKeluar">Keluar admin</button>
+    </section>
+
   </div>
 </div>
 
