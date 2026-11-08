@@ -7,9 +7,20 @@
   a.loop = true;          // selesai -> otomatis ulang
   a.preload = 'auto';
 
-  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } };
+  // sessionStorage: hanya berlaku di tab ini. Tab baru / buka ulang = mulai dari awal.
+  // Kunjungan baru (ketik alamat, bookmark, link dari luar situs) juga direset.
+  // Pindah halaman di dalam situs (jadwal <-> admin) atau reload tetap lanjut.
+  try{
+    const nav = performance.getEntriesByType('navigation')[0];
+    const tipe = nav ? nav.type : 'navigate';
+    let dalamSitus = false;
+    try{ dalamSitus = !!document.referrer && new URL(document.referrer).origin === location.origin; }catch(e){}
+    if(tipe === 'reload' || (tipe === 'navigate' && !dalamSitus)) sessionStorage.removeItem(KEY);
+  }catch(e){}
+
+  const load = () => { try { return JSON.parse(sessionStorage.getItem(KEY)) || {}; } catch(e){ return {}; } };
   const save = () => {
-    try{ localStorage.setItem(KEY, JSON.stringify({t: a.currentTime, at: Date.now(), on: !a.paused})); }catch(e){}
+    try{ sessionStorage.setItem(KEY, JSON.stringify({t: a.currentTime, at: Date.now(), on: !a.paused})); }catch(e){}
   };
 
   // lanjutkan dari posisi terakhir (ditambah selisih waktu saat pindah halaman)
