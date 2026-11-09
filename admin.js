@@ -1,9 +1,10 @@
-// Halaman admin: PIN dulu, baru menu petugas / acak / tes kirim.
+// Halaman admin: PIN dulu, baru menu petugas / acak / edit jadwal / tes kirim.
 // URL Web App ada di config.js (const API)
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 let pin = '', daftar = [], asli = [], dirty = false;   // asli = nama saat dimuat/disimpan (untuk melacak perbaikan nama)
+let imamSet = new Set();                                // nama petugas yang khusus jadi imam
 
 const bulanIni = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit'}).format(new Date()).slice(0,7);
 $('bulanAcak').value = bulanIni();
@@ -26,29 +27,43 @@ async function login(){
   try{
     const r = await api({aksi:'daftar'});
     if(r.error){ pin=''; $('loginMsg').textContent=r.error; }
-    else{ daftar=r.petugas||[]; asli=daftar.slice(); dirty=false; renderDaftar(); setMsg(''); showStep(true); }
+    else{
+      daftar=r.petugas||[]; asli=daftar.slice(); imamSet=new Set(r.imamSaja||[]); dirty=false;
+      renderDaftar(); setMsg(''); showStep(true);
+    }
   }catch(e){ pin=''; $('loginMsg').textContent='Gagal terhubung ke server'; }
   b.disabled=false; b.textContent='Masuk';
 }
 $('btnLogin').onclick = login;
 $('pinIn').onkeydown = e => { if(e.key==='Enter') login(); };
-$('btnKeluar').onclick = () => { pin=''; daftar=[]; asli=[]; dirty=false; location.replace('index.html'); };
+$('btnKeluar').onclick = () => { pin=''; daftar=[]; asli=[]; imamSet=new Set(); dirty=false; location.replace('index.html'); };
 
 // ---------- petugas ----------
 function renderDaftar(){
   $('jml').textContent = daftar.length;
   $('chips').innerHTML = daftar.length
-    ? daftar.map((n,i)=>`<span class="chip"><span class="nm" data-e="${i}" title="Klik untuk memperbaiki nama">${esc(n)}</span><button class="ed" data-e="${i}" aria-label="Ubah nama" title="Ubah nama">✎</button><button data-i="${i}" aria-label="Hapus">✕</button></span>`).join('')
+    ? daftar.map((n,i)=>{
+        const im = imamSet.has(n);
+        return `<span class="chip${im?' im':''}"><span class="nm" data-e="${i}" title="Klik untuk memperbaiki nama">${esc(n)}</span>${im?'<span class="bdg">Imam saja</span>':''}<button class="fl${im?' on':''}" data-f="${i}" aria-label="Khusus imam" title="${im?'Khusus imam (klik untuk batalkan)':'Jadikan khusus imam'}">🎤</button><button class="ed" data-e="${i}" aria-label="Ubah nama" title="Ubah nama">✎</button><button data-i="${i}" aria-label="Hapus">✕</button></span>`;
+      }).join('')
     : '<span class="hint">Belum ada petugas</span>';
 }
 $('chips').onclick = e => {
   const t = e.target.dataset || {};
-  if(t.i !== undefined){ daftar.splice(+t.i,1); asli.splice(+t.i,1); dirty=true; renderDaftar(); return; }
+  if(t.i !== undefined){ imamSet.delete(daftar[+t.i]); daftar.splice(+t.i,1); asli.splice(+t.i,1); dirty=true; renderDaftar(); return; }
+  if(t.f !== undefined){
+    const n = daftar[+t.f];
+    imamSet.has(n) ? imamSet.delete(n) : imamSet.add(n);
+    dirty = true; renderDaftar();
+    setMsg('Flag diubah. Klik "Simpan daftar petugas" agar tersimpan.', true);
+    return;
+  }
   if(t.e !== undefined){
     const i = +t.e;
     const baru = (prompt('Perbaiki nama petugas:', daftar[i]) || '').trim();
     if(!baru || baru === daftar[i]) return;
     if(daftar.some((x,k)=>k!==i && x.toLowerCase()===baru.toLowerCase())){ setMsg('Nama "'+baru+'" sudah ada di daftar'); return; }
+    if(imamSet.has(daftar[i])){ imamSet.delete(daftar[i]); imamSet.add(baru); }
     daftar[i] = baru; dirty = true; renderDaftar();
     setMsg('Nama diubah. Klik "Simpan daftar petugas" agar tersimpan (nama di jadwal ikut diperbaiki).', true);
   }
@@ -84,7 +99,8 @@ async function simpan(){
   // pasangan nama lama -> nama baru (perbaikan typo), supaya jadwal yang sudah ada ikut diperbaiki
   const ganti = {};
   daftar.forEach((n,i) => { if(asli[i] && asli[i] !== n) ganti[asli[i]] = n; });
-  const r = await api({aksi:'petugas', data:daftar, ganti});
+  const imamSaja = daftar.filter(n => imamSet.has(n));
+  const r = await api({aksi:'petugas', data:daftar, ganti, imamSaja});
   if(r.error) throw new Error(r.error);
   asli = daftar.slice(); dirty = false; return r;
 }
@@ -95,7 +111,8 @@ async function jalankan(btn, label, fn){
 }
 
 $('btnSimpan').onclick = () => jalankan($('btnSimpan'),'Menyimpan…', async () => {
-  const r = await simpan(); setMsg('Tersimpan ('+r.jumlah+' petugas)' + (r.diganti ? '. Nama diperbaiki di '+r.diganti+' kolom jadwal.' : ''), true);
+  const r = await simpan();
+  setMsg('Tersimpan ('+r.jumlah+' petugas, '+(r.imamSaja||0)+' khusus imam)' + (r.diganti ? '. Nama diperbaiki di '+r.diganti+' kolom jadwal.' : ''), true);
 });
 
 // ---------- acak & tes ----------
@@ -111,20 +128,48 @@ $('btnAcak').onclick = () => {
     setMsg('Jadwal '+b+' diacak ('+r.jumlah+' slot terisi)' + (lb ? '. Dilewati karena terbaca libur (tgl): '+lb : ''), true);
   });
 };
-$('btnLengkapi').onclick = () => {
-  const b = $('bulanAcak').value;
-  if(!b){ setMsg('Pilih bulan dulu'); return; }
-  jalankan($('btnLengkapi'),'Melengkapi…', async () => {
-    if(dirty) await simpan();
-    const r = await api({aksi:'lengkapi', bulan:b});
-    if(r.error) throw new Error(r.error);
-    const lb = (r.libur||[]).map(t => t.slice(8)).join(', ');
-    setMsg((r.jumlah ? 'Ditambahkan '+r.jumlah+' slot yang kosong di '+b : 'Tidak ada tanggal yang bisa diisi di '+b) + (lb ? '. Dilewati karena terbaca libur (tgl): '+lb : ''), true);
-  });
-};
 $('btnTes').onclick = () => jalankan($('btnTes'),'Mengirim…', async () => {
   const r = await api({aksi:'tes'});
   if(r.error) throw new Error(r.error);
   if(r.status===false) throw new Error('Ditolak: '+(r.reason||'gagal'));
   setMsg('Pesan tes terkirim ke grup dummy', true);
 });
+
+// ---------- edit manual jadwal ----------
+let rowsEdit = [], bulanEdit = '';
+const HARI = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+const tglPendek = s => { const d = new Date(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10), 12); return HARI[d.getDay()]+', '+s.slice(8)+'/'+s.slice(5,7); };
+function opsi(cur){
+  const list = daftar.includes(cur) || !cur ? daftar : daftar.concat(cur);
+  return list.map(n => `<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('');
+}
+function setMd(t, ok){ const m=$('mdMsg'); m.textContent=t||''; m.className='msg'+(ok?' ok':''); }
+
+$('btnEdit').onclick = () => jalankan($('btnEdit'),'Memuat…', async () => {
+  const b = $('bulanAcak').value;
+  if(!b) throw new Error('Pilih bulan dulu');
+  if(dirty) await simpan();   // supaya pilihan nama memakai daftar terbaru
+  const r = await fetch(API + '?bulan=' + b);
+  const j = await r.json();
+  if(!Array.isArray(j)) throw new Error('Gagal memuat jadwal');
+  if(!j.length) throw new Error('Belum ada jadwal di '+b+'. Acak dulu.');
+  bulanEdit = b; rowsEdit = j;
+  $('mdBulan').textContent = '(' + b + ')';
+  $('mdBody').innerHTML = '<table><thead><tr><th>Tanggal</th><th>Salat</th><th>Imam</th><th>Muazin</th></tr></thead><tbody>' +
+    rowsEdit.map((x,i)=>`<tr><td>${tglPendek(x.tanggal)}</td><td>${esc(x.salat)}</td><td><select data-k="imam" data-r="${i}">${opsi(x.imam)}</select></td><td><select data-k="muazin" data-r="${i}">${opsi(x.muazin)}</select></td></tr>`).join('') +
+    '</tbody></table>';
+  setMd('');
+  $('mdEdit').style.display = 'flex';
+});
+$('mdBatal').onclick = () => { $('mdEdit').style.display = 'none'; };
+$('mdSimpan').onclick = async () => {
+  const b = $('mdSimpan'); b.disabled = true; b.textContent = 'Menyimpan…'; setMd('');
+  try{
+    document.querySelectorAll('#mdBody select').forEach(s => { rowsEdit[+s.dataset.r][s.dataset.k] = s.value; });
+    const r = await api({aksi:'simpanJadwal', bulan:bulanEdit, data:rowsEdit.map(x => ({tanggal:x.tanggal, salat:x.salat, imam:x.imam, muazin:x.muazin}))});
+    if(r.error) throw new Error(r.error);
+    $('mdEdit').style.display = 'none';
+    setMsg('Jadwal '+bulanEdit+' disimpan ('+r.diubah+' slot diubah)' + (r.peringatan ? '. '+r.peringatan : ''), true);
+  }catch(e){ setMd(e.message || 'Gagal'); }
+  b.disabled = false; b.textContent = 'Simpan jadwal';
+};

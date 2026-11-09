@@ -32,7 +32,7 @@
   <div class="adm" id="stAdmin" style="display:none">
 
     <section class="card pn">
-      <div class="ttl">Petugas <span class="cnt">(<span id="jml">0</span>)</span> <span class="hint">minimal 4 orang · klik nama / ✎ untuk memperbaiki</span></div>
+      <div class="ttl">Petugas <span class="cnt">(<span id="jml">0</span>)</span> <span class="hint">minimal 4 orang · klik nama / ✎ untuk memperbaiki · tombol 🎤 = khusus imam</span></div>
       <div class="chips" id="chips"></div>
       <div class="add">
         <input type="text" id="namaBaru" placeholder="Nama petugas baru">
@@ -50,12 +50,26 @@
       <label for="bulanAcak">Bulan</label>
       <input type="month" id="bulanAcak">
       <button class="btn pri" id="btnAcak">Acak ulang bulan ini (isi semua hari kerja)</button>
-      <button class="btn" id="btnLengkapi">Lengkapi tanggal kosong (tanpa mengubah yang sudah ada)</button>
+      <button class="btn" id="btnEdit">Edit manual jadwal bulan ini</button>
       <button class="btn" id="btnTes">Tes kirim ke grup dummy</button>
       <div class="msg" id="admMsg"></div>
       <button class="btn red push" id="btnKeluar">Keluar admin</button>
     </section>
 
+  </div>
+</div>
+
+<!-- Editor jadwal manual -->
+<div class="modal" id="mdEdit" style="display:none">
+  <div class="card box">
+    <div class="ttl">Edit jadwal <span class="cnt" id="mdBulan"></span></div>
+    <div class="hint">Ubah nama imam / muazin lewat pilihan, lalu klik Simpan jadwal.</div>
+    <div class="tblw" id="mdBody"></div>
+    <div class="msg" id="mdMsg"></div>
+    <div class="row">
+      <button class="btn" id="mdBatal">Batal</button>
+      <button class="btn pri" id="mdSimpan">Simpan jadwal</button>
+    </div>
   </div>
 </div>
 
