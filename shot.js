@@ -1,35 +1,37 @@
-// Tombol kamera: unduh gambar jadwal SATU BULAN penuh (PNG, rasio mendekati A4 landscape, tanpa bingkai/margin)
-// Memakai fungsi & data dari app.js (susunMinggu, cur, indo, esc, urutSlot, parse, BULAN, HARI, $)
+// Tombol kamera: unduh jadwal SATU BULAN penuh sebagai PDF A4 landscape, tanpa bingkai/margin
+// Memakai fungsi & data dari app.js (susunMinggu, cur, esc, urutSlot, parse, BULAN, $)
 (function(){
-  const W = 2400;   // lebar gambar (px), cukup tajam untuk dicetak A3/A4
+  const W = 2400;                       // lebar kanvas (px); tinggi mengikuti rasio A4 landscape
+  const H = Math.round(W * 210 / 297);  // 1697 px
+  const SCALE = 1.5;                    // ketajaman (~300 dpi di A4)
 
   const css = `
   .snap{flex:none;width:38px;height:38px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
   .snap:hover{background:#eef3fd}
   .snap:disabled{opacity:.5;cursor:wait}
   .snap svg{width:20px;height:20px}
-  #shotRoot{position:absolute;left:-10000px;top:0;width:${W}px;min-height:${Math.round(W/1.4142)}px;display:flex;flex-direction:column;background:#f3f7fb;font-family:'Poppins',system-ui,sans-serif;color:#0f172a;line-height:1.25}
+  #shotRoot{position:absolute;left:-10000px;top:0;width:${W}px;min-height:${H}px;display:flex;flex-direction:column;background:#f3f7fb;font-family:'Poppins',system-ui,sans-serif;color:#0f172a;line-height:1.2}
   #shotRoot *{box-sizing:border-box;margin:0;padding:0}
-  #shotRoot .s-top{background:linear-gradient(135deg,#0f3d8f,#2a7de1);color:#fff;padding:26px 40px;display:flex;align-items:center;justify-content:space-between}
-  #shotRoot .s-top h1{font-size:54px;font-weight:800}
-  #shotRoot .s-top h2{font-size:38px;font-weight:600;opacity:.95;margin-top:2px}
-  #shotRoot .s-leg{display:flex;gap:28px;font-size:30px;font-weight:600}
-  #shotRoot .s-leg i{display:inline-block;width:30px;height:30px;border-radius:8px;margin-right:10px;vertical-align:-4px}
-  #shotRoot .s-body{flex:1;display:flex;flex-direction:column;gap:10px;padding:10px}
-  #shotRoot .s-hd,#shotRoot .s-wk{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  #shotRoot .s-top{background:linear-gradient(135deg,#0f3d8f,#2a7de1);color:#fff;padding:18px 36px;display:flex;align-items:center;justify-content:space-between}
+  #shotRoot .s-top h1{font-size:46px;font-weight:800}
+  #shotRoot .s-top h2{font-size:32px;font-weight:600;opacity:.95}
+  #shotRoot .s-leg{display:flex;gap:26px;font-size:28px;font-weight:600}
+  #shotRoot .s-leg i{display:inline-block;width:28px;height:28px;border-radius:8px;margin-right:10px;vertical-align:-4px}
+  #shotRoot .s-body{flex:1;display:flex;flex-direction:column;gap:8px;padding:8px}
+  #shotRoot .s-hd,#shotRoot .s-wk{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
   #shotRoot .s-wk{flex:1}
-  #shotRoot .s-hd div{background:#d3e3f8;border-radius:12px;text-align:center;font-weight:700;font-size:30px;padding:8px 0;letter-spacing:.05em;text-transform:uppercase}
-  #shotRoot .c{background:#fff;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;border:2px solid #e3e8f2}
+  #shotRoot .s-hd div{background:#d3e3f8;border-radius:10px;text-align:center;font-weight:700;font-size:26px;padding:5px 0;letter-spacing:.05em;text-transform:uppercase}
+  #shotRoot .c{background:#fff;border-radius:14px;padding:9px 10px;display:flex;flex-direction:column;gap:5px;border:2px solid #e3e8f2}
   #shotRoot .c.blank{background:transparent;border-color:transparent}
-  #shotRoot .c.off{background:#eceff5;color:#64748b;align-items:center;justify-content:center;text-align:center;font-size:26px;font-weight:600}
-  #shotRoot .c.off b{font-size:52px;color:#64748b;line-height:1}
-  #shotRoot .dh{display:flex;align-items:baseline;gap:10px}
-  #shotRoot .dh b{font-size:54px;font-weight:800;color:#0f3d8f;line-height:1}
-  #shotRoot .dh span{font-size:28px;font-weight:600;color:#64748b}
-  #shotRoot .sl{display:flex;flex-direction:column;gap:5px}
-  #shotRoot .tm{font-size:26px;font-weight:700;color:#16a34a}
-  #shotRoot .tm small{font-size:24px;font-weight:600;color:#64748b;margin-right:8px}
-  #shotRoot .im,#shotRoot .mu{border-radius:10px;padding:6px 12px;font-size:29px;font-weight:600}
+  #shotRoot .c.off{background:#eceff5;color:#64748b;align-items:center;justify-content:center;text-align:center;font-size:24px;font-weight:600}
+  #shotRoot .c.off b{font-size:44px;color:#64748b;line-height:1}
+  #shotRoot .dh{display:flex;align-items:baseline;gap:8px}
+  #shotRoot .dh b{font-size:44px;font-weight:800;color:#0f3d8f;line-height:1}
+  #shotRoot .dh span{font-size:24px;font-weight:600;color:#64748b}
+  #shotRoot .sl{display:flex;flex-direction:column;gap:3px}
+  #shotRoot .tm{font-size:23px;font-weight:700;color:#16a34a}
+  #shotRoot .tm small{font-size:21px;font-weight:600;color:#64748b;margin-right:8px}
+  #shotRoot .im,#shotRoot .mu{border-radius:9px;padding:4px 10px;font-size:25px;font-weight:600}
   #shotRoot .im{background:#c6efd3}
   #shotRoot .mu{background:#ffddb3}
   `;
@@ -38,18 +40,19 @@
   const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   const btn = document.createElement('button');
   btn.className = 'snap'; btn.id = 'bShot'; btn.type = 'button';
-  btn.title = 'Unduh gambar jadwal sebulan (untuk dicetak)'; btn.setAttribute('aria-label', 'Unduh gambar jadwal sebulan');
+  btn.title = 'Unduh jadwal sebulan (PDF A4, untuk dicetak)'; btn.setAttribute('aria-label', 'Unduh jadwal sebulan sebagai PDF A4');
   btn.innerHTML = ICON;
   document.querySelector('.bar').appendChild(btn);
 
-  function muatLib(){
-    return window.html2canvas ? Promise.resolve() : new Promise((ok, no) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      s.onload = ok; s.onerror = () => no(new Error('Gagal memuat pustaka gambar'));
-      document.head.appendChild(s);
-    });
-  }
+  const muat = (cek, src, galat) => cek() ? Promise.resolve() : new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = ok; s.onerror = () => no(new Error(galat));
+    document.head.appendChild(s);
+  });
+  const muatLib = () => Promise.all([
+    muat(() => window.html2canvas, 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'Gagal memuat pustaka gambar'),
+    muat(() => window.jspdf, 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'Gagal memuat pustaka PDF'),
+  ]);
 
   function bangun(key){
     const by = {};
@@ -82,16 +85,24 @@
       root.innerHTML = bangun(key);
       document.body.appendChild(root);
       const canvas = await html2canvas(root, {
-        scale: 1, backgroundColor: '#f3f7fb', useCORS: true,
+        scale: SCALE, backgroundColor: '#f3f7fb', useCORS: true,
         windowWidth: W, width: W, scrollX: 0, scrollY: 0,
         onclone: doc => { const r = doc.getElementById('shotRoot'); r.style.left = '0'; r.style.top = '0'; },
       });
-      const a = document.createElement('a');
-      a.download = 'jadwal-mushola-' + key + '.png';
-      a.href = canvas.toDataURL('image/png');
-      document.body.appendChild(a); a.click(); a.remove();
+
+      // PDF A4 landscape, gambar memenuhi halaman (tanpa margin).
+      // Kalau bulan itu 6 minggu & isi lebih tinggi dari A4, gambar diperkecil agar muat (sisa diisi warna latar).
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pw = 297, ph = 210;
+      pdf.setFillColor(243, 247, 251);
+      pdf.rect(0, 0, pw, ph, 'F');
+      let w = pw, h = w * canvas.height / canvas.width;
+      if(h > ph){ h = ph; w = h * canvas.width / canvas.height; }
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (pw - w) / 2, 0, w, h);
+      pdf.save('jadwal-mushola-' + key + '.pdf');
     }catch(e){
-      alert(e.message || 'Gagal membuat gambar');
+      alert(e.message || 'Gagal membuat PDF');
     }finally{
       if(root) root.remove();
       btn.disabled = false;
