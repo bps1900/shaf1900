@@ -9,8 +9,20 @@ let imamSet = new Set();                                // nama petugas yang khu
 const bulanIni = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit'}).format(new Date()).slice(0,7);
 $('bulanAcak').value = bulanIni();
 
+// fetch dengan batas waktu, supaya tidak muter selamanya
+async function fetchTimeout(url, opt, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 40000);
+  try{
+    return await fetch(url, Object.assign({signal: ctl.signal}, opt || {}));
+  }catch(e){
+    if(e.name === 'AbortError') throw new Error('Server terlalu lama merespons, coba lagi');
+    throw new Error('Gagal terhubung ke server');
+  }finally{ clearTimeout(t); }
+}
+
 async function api(body){
-  const r = await fetch(API, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(Object.assign({pin}, body))});
+  const r = await fetchTimeout(API, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(Object.assign({pin}, body))});
   return r.json();
 }
 function setMsg(t, ok){ const m=$('admMsg'); m.textContent=t||''; m.className='msg'+(ok?' ok':''); }
@@ -31,7 +43,7 @@ async function login(){
       daftar=r.petugas||[]; asli=daftar.slice(); imamSet=new Set(r.imamSaja||[]); dirty=false;
       renderDaftar(); setMsg(''); showStep(true);
     }
-  }catch(e){ pin=''; $('loginMsg').textContent='Gagal terhubung ke server'; }
+  }catch(e){ pin=''; $('loginMsg').textContent=e.message || 'Gagal terhubung ke server'; }
   b.disabled=false; b.textContent='Masuk';
 }
 $('btnLogin').onclick = login;
@@ -139,25 +151,43 @@ $('btnTes').onclick = () => jalankan($('btnTes'),'Mengirim…', async () => {
 let rowsEdit = [], bulanEdit = '';
 const HARI = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const tglPendek = s => { const d = new Date(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10), 12); return HARI[d.getDay()]+', '+s.slice(8)+'/'+s.slice(5,7); };
-function opsi(cur){
-  const list = daftar.includes(cur) || !cur ? daftar : daftar.concat(cur);
-  return list.map(n => `<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('');
-}
 function setMd(t, ok){ const m=$('mdMsg'); m.textContent=t||''; m.className='msg'+(ok?' ok':''); }
+
+// Opsi nama dibuat sekali saja per nama (bukan per baris) supaya ringan
+const opsiCache = {};
+function opsi(cur){
+  const list = !cur || daftar.includes(cur) ? daftar : daftar.concat(cur);
+  const key = list.join('\u0001');
+  if(!opsiCache[key]) opsiCache[key] = list.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  return opsiCache[key];
+}
+
+async function ambilJadwalBulan(b){
+  // Cara baru: lewat POST (pakai jalur yang sama dengan login). Kalau server lama, pakai GET.
+  let r = await api({aksi:'lihatJadwal', bulan:b});
+  if(r && r.error && /tidak dikenal/i.test(r.error)){
+    const x = await fetchTimeout(API + '?bulan=' + encodeURIComponent(b));
+    r = await x.json();
+  }
+  if(r && r.error) throw new Error(r.error);
+  if(!Array.isArray(r)) throw new Error('Gagal memuat jadwal');
+  return r;
+}
 
 $('btnEdit').onclick = () => jalankan($('btnEdit'),'Memuat…', async () => {
   const b = $('bulanAcak').value;
   if(!b) throw new Error('Pilih bulan dulu');
   if(dirty) await simpan();   // supaya pilihan nama memakai daftar terbaru
-  const r = await fetch(API + '?bulan=' + b);
-  const j = await r.json();
-  if(!Array.isArray(j)) throw new Error('Gagal memuat jadwal');
+  const j = await ambilJadwalBulan(b);
   if(!j.length) throw new Error('Belum ada jadwal di '+b+'. Acak dulu.');
   bulanEdit = b; rowsEdit = j;
   $('mdBulan').textContent = '(' + b + ')';
+  const sel = (k, i, cur) => `<select data-k="${k}" data-r="${i}" data-v="${esc(cur)}">${opsi(cur)}</select>`;
   $('mdBody').innerHTML = '<table><thead><tr><th>Tanggal</th><th>Salat</th><th>Imam</th><th>Muazin</th></tr></thead><tbody>' +
-    rowsEdit.map((x,i)=>`<tr><td>${tglPendek(x.tanggal)}</td><td>${esc(x.salat)}</td><td><select data-k="imam" data-r="${i}">${opsi(x.imam)}</select></td><td><select data-k="muazin" data-r="${i}">${opsi(x.muazin)}</select></td></tr>`).join('') +
+    rowsEdit.map((x,i)=>`<tr><td>${tglPendek(x.tanggal)}</td><td>${esc(x.salat)}</td><td>${sel('imam',i,x.imam)}</td><td>${sel('muazin',i,x.muazin)}</td></tr>`).join('') +
     '</tbody></table>';
+  // pilih nilai awal tiap dropdown
+  document.querySelectorAll('#mdBody select').forEach(s => { s.value = s.dataset.v; });
   setMd('');
   $('mdEdit').style.display = 'flex';
 });
