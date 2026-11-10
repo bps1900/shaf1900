@@ -13,6 +13,8 @@
   #shotRoot{position:absolute;left:-10000px;top:0;width:${W}px;min-height:${H}px;display:flex;flex-direction:column;background:#f3f7fb;font-family:'Poppins',system-ui,sans-serif;color:#0f172a;line-height:1.2}
   #shotRoot *{box-sizing:border-box;margin:0;padding:0}
   #shotRoot .s-top{background:linear-gradient(135deg,#0f3d8f,#2a7de1);color:#fff;padding:18px 36px;display:flex;align-items:center;justify-content:space-between}
+  #shotRoot .s-brand{display:flex;align-items:center;gap:22px}
+  #shotRoot .s-brand img{height:92px;width:auto;flex:none}
   #shotRoot .s-top h1{font-size:46px;font-weight:800}
   #shotRoot .s-top h2{font-size:32px;font-weight:600;opacity:.95}
   #shotRoot .s-leg{display:flex;gap:26px;font-size:28px;font-weight:600}
@@ -67,7 +69,7 @@
       return `<div class="c"><div class="dh"><b>${d.getDate()}</b><span>${BULAN[d.getMonth()].slice(0,3)}</span></div>${slots}</div>`;
     };
     const weeks = susunMinggu(key).map(w => `<div class="s-wk">${w.map(cell).join('')}</div>`).join('');
-    return `<div class="s-top"><div><h1>Jadwal Petugas Mushola Asyakirin</h1><h2>${BULAN[m-1]} ${y}</h2></div>` +
+    return `<div class="s-top"><div class="s-brand"><img src="icon.png" alt="" onerror="this.style.display='none'"><div><h1>Jadwal Petugas Mushola Asyakirin</h1><h2>${BULAN[m-1]} ${y}</h2></div></div>` +
       `<div class="s-leg"><span><i style="background:#4ade80"></i>Imam</span><span><i style="background:#fb923c"></i>Muazin</span></div></div>` +
       `<div class="s-body"><div class="s-hd"><div>Senin</div><div>Selasa</div><div>Rabu</div><div>Kamis</div><div>Jumat</div></div>${weeks}</div>`;
   }
@@ -84,6 +86,8 @@
       root.id = 'shotRoot';
       root.innerHTML = bangun(key);
       document.body.appendChild(root);
+      // pastikan logo sudah termuat sebelum difoto
+      await Promise.all([...root.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
       const canvas = await html2canvas(root, {
         scale: SCALE, backgroundColor: '#f3f7fb', useCORS: true,
         windowWidth: W, width: W, scrollX: 0, scrollY: 0,
