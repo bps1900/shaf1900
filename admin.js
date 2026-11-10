@@ -9,6 +9,9 @@ let imamSet = new Set();                                // nama petugas yang khu
 const bulanIni = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit'}).format(new Date()).slice(0,7);
 $('bulanAcak').value = bulanIni();
 
+// urutan abjad A-Z (tidak peduli huruf besar/kecil)
+const urutAbjad = (a, b) => a.localeCompare(b, 'id', { sensitivity: 'base' });
+
 // fetch dengan batas waktu, supaya tidak muter selamanya
 async function fetchTimeout(url, opt, ms){
   const ctl = new AbortController();
@@ -53,8 +56,11 @@ $('btnKeluar').onclick = () => { pin=''; daftar=[]; asli=[]; imamSet=new Set(); 
 // ---------- petugas ----------
 function renderDaftar(){
   $('jml').textContent = daftar.length;
+  // urutkan hanya tampilan; i tetap indeks asli supaya edit/hapus/flag tidak tertukar
+  const urut = daftar.map((n,i)=>i).sort((x,y)=>urutAbjad(daftar[x], daftar[y]));
   $('chips').innerHTML = daftar.length
-    ? daftar.map((n,i)=>{
+    ? urut.map(i=>{
+        const n = daftar[i];
         const im = imamSet.has(n);
         return `<span class="chip${im?' im':''}"><span class="nm" data-e="${i}" title="Klik untuk memperbaiki nama">${esc(n)}</span>${im?'<span class="bdg">Imam saja</span>':''}<button class="fl${im?' on':''}" data-f="${i}" aria-label="Khusus imam" title="${im?'Khusus imam (klik untuk batalkan)':'Jadikan khusus imam'}">🎤</button><button class="ed" data-e="${i}" aria-label="Ubah nama" title="Ubah nama">✎</button><button data-i="${i}" aria-label="Hapus">✕</button></span>`;
       }).join('')
@@ -153,10 +159,10 @@ const HARI = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 const tglPendek = s => { const d = new Date(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10), 12); return HARI[d.getDay()]+', '+s.slice(8)+'/'+s.slice(5,7); };
 function setMd(t, ok){ const m=$('mdMsg'); m.textContent=t||''; m.className='msg'+(ok?' ok':''); }
 
-// Opsi nama dibuat sekali saja per nama (bukan per baris) supaya ringan
+// Opsi nama dibuat sekali saja per nama (bukan per baris) supaya ringan; urut A-Z
 const opsiCache = {};
 function opsi(cur){
-  const list = !cur || daftar.includes(cur) ? daftar : daftar.concat(cur);
+  const list = (!cur || daftar.includes(cur) ? daftar.slice() : daftar.concat(cur)).sort(urutAbjad);
   const key = list.join('\u0001');
   if(!opsiCache[key]) opsiCache[key] = list.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
   return opsiCache[key];
